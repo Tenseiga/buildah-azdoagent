@@ -1,0 +1,59 @@
+# Default values for azdoagent.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+annotations: {}
+image:
+  repository: windscar/buildahimg
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: latest
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations:
+  container.apparmor.security.beta.kubernetes.io/azdoagent: localhost/containerized_buildah
+  
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources: 
+  limits:
+    github.com/fuse: 1
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+AZP_URL: "https://dev.azure.com/cpf-blue-skies"
+AZP_TOKEN: "qilrs7rpde74uccdkedc4xq2vpjxkagr3x7mjph3h56ct7r3wm2a"
+AZP_POOL: "test"
+affinity: {}
+#add all the azure devops env varioabls
+# env:
+#   - name: capability1
+#     value: my-value

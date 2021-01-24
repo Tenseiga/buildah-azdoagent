@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "azdochart.fullname" . }}
+  labels:
+    {{- include "azdochart.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "azdochart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "azdochart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "azdochart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: azdoagent
+          command: ["/bin/sh"]
+          args: ["-c", "while true; do echo hello; sleep 10;done" ]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+           - name: AZP_URL
+             valueFrom:
+               secretKeyRef:
+                 name: azdocreds
+                 key: AZP_URL
+           - name: AZP_TOKEN
+             valueFrom:
+               secretKeyRef:
+                 name: azdocreds
+                 key: AZP_TOKEN
+           - name: AZP_POOL
+             valueFrom:
+               secretKeyRef:
+                 name: azdocreds
+                 key: AZP_POOL
+          {{- with .Values.env }}
+          {{- . | toYaml | trim | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+          - name: datadir
+            mountPath: /var/lib/containers
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: datadir
+        emptyDir: {}
+
