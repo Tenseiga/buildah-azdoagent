@@ -1,0 +1,106 @@
+
+ARG UBUNTU_VERSION=20.04
+FROM ubuntu:$UBUNTU_VERSION
+
+ENV export DOCKER_CONTENT_TRUST=1
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Singapore
+# ENV SSL_CERT_FILE=<cert_path>
+# ENV SSL_CER_DIR=/azp
+# ENV REQUESTS_CA_BUNDLE=<cert_path>
+# ENV NODE_EXTRA_CA_CERTS=<cert_path>
+ENV TF_VERSION=0.14.3
+ENV NODE_VERSION=12
+ENV HELM_VERSION=v3.2.4
+ENV KUBECTL_VERSION=v1.18.0
+ENV JAVA_VERSION=11
+ENV DOTNET3X_VERSION=3.1
+ENV DOTNET2X_VERSION=2.1
+
+RUN sed -i 's/[a-z][a-z].archive.ubuntu.com/azure.archive.ubuntu.com/g' /etc/apt/sources.list 
+RUN sed -i 's/archive.ubuntu.com/azure.archive.ubuntu.com/g' /etc/apt/sources.list 
+
+WORKDIR /azp
+COPY . .
+
+#COPY--chown=root:root build/<root_cert_filename> build/<int_cert_filename> build/<int_cert_filename> /usr/local/share/ca-certificates/
+#RUN chmod -R 644 /usr/local/share/ca-certificates/
+
+# Installing pre-requesite and utilities...
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        jq \
+        git \
+        iputils-ping \
+        curl \
+        libunwind8 \
+        apt-transport-https \
+        ca-certificates \
+        netcat \
+        lsb-release gnupg \
+        wget \
+	sudo \
+        software-properties-common \
+        unzip
+
+#region docker
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+        && apt-get update \
+        && apt-get -y install docker-ce-cli 
+
+#region az cli
+RUN curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | \
+        tee /etc/apt/trusted.gpg.d/microsoft.asc.gpg > /dev/null \
+        && AZ_REPO=$(lsb_release -cs) \ 
+        && echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $AZ_REPO main" | tee /etc/apt/sources.list.d/azure-cli.list
+RUN apt-get update \
+        && apt-get install -y azure-cli
+
+#region node
+RUN curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
+        && apt-get install -y nodejs
+
+# to do
+# RUN npm config set -g cafile="/etc/ssl/certs/ca-certificates.crt"
+
+# region dotnet 5
+RUN wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    apt-get install -y apt-transport-https && \
+    apt-get update 
+RUN apt-get install -y aspnetcore-runtime-5.0 \
+    dotnet-sdk-5.0
+
+# region jdk
+RUN  apt-get install -y openjdk-${JAVA_VERSION}-jdk
+
+# region chrome
+RUN curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+RUN echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | tee /etc/apt/sources.list.d/google-chrome.list \
+        && apt-get update  \
+        && apt-get -y install google-chrome-stable
+
+# region kubectl
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl \
+        && chmod +x ./kubectl \
+        && mv ./kubectl /usr/local/bin/kubectl
+
+# region HELM
+RUN  curl -LO https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz \
+        && mkdir tmp \
+        && tar xf helm-${HELM_VERSION}-linux-amd64.tar.gz -C tmp \
+        && mv ./tmp/**/helm /usr/local/bin/ \
+        && rm helm-${HELM_VERSION}-linux-amd64.tar.gz \
+        && rm -rf tmp
+
+# region Terraform
+RUN wget -O tf.zip https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip && \
+    unzip tf.zip && \
+    mv terraform /usr/local/bin/
+
+# to do after cert issue
+# RUN git config --system http.sslCAInfo '<cert_path>'
+RUN rm -rf /azp/build
+RUN chmod +x start.sh
+
+CMD ["./start.sh"]
